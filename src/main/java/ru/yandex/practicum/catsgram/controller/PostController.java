@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import ru.yandex.practicum.catsgram.exception.ParameterNotValidException;
 import ru.yandex.practicum.catsgram.exception.PostNotFoundException;
 import ru.yandex.practicum.catsgram.model.Pagination;
 import ru.yandex.practicum.catsgram.model.Post;
@@ -30,10 +31,25 @@ public class PostController {
 
     @GetMapping
     public Collection<Post> findAll(
-            @RequestParam(defaultValue = "desc") String sort,
-            @RequestParam(defaultValue = "0") Integer from,
-            @RequestParam(defaultValue = "10") Integer size
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) Integer from,
+            @RequestParam(required = false) Integer size
     ) {
+
+        if (SortOrder.from(sort) == null) {
+            throw new ParameterNotValidException("sort", "параметр sort должен содержать корректное значение");
+        }
+
+        if (size <= 0) {
+            throw new ParameterNotValidException("size", "параметр size должен быть больше нуля");
+        }
+
+        if (from < 0) {
+            throw new ParameterNotValidException("from", "параметр from не может быть меньше нуля");
+        }
+
+
+
         SortOrder sortOrder = SortOrder.from(sort) == null ? SortOrder.DESCENDING : SortOrder.from(sort);
         Integer fromResult = from >= 0 ? from : 0;
         Integer sizeResult = size > 0 ? size : 10;
