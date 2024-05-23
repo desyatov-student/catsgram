@@ -1,0 +1,10 @@
+task-genius:
+  notifications:
+    email:
+      enabled: true
+      address: ivan.petrov@pochti.net
+    phone:
+      enabled: false
+      number: 1234567890
+  ui:
+    theme: dark

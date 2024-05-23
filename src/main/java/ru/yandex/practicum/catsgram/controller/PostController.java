@@ -1,70 +1,60 @@
 package ru.yandex.practicum.catsgram.controller;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import ru.yandex.practicum.catsgram.exception.ConditionsNotMetException;
-import ru.yandex.practicum.catsgram.exception.NotFoundException;
+import ru.yandex.practicum.catsgram.exception.PostNotFoundException;
+import ru.yandex.practicum.catsgram.model.Pagination;
 import ru.yandex.practicum.catsgram.model.Post;
+import ru.yandex.practicum.catsgram.service.PostService;
+import ru.yandex.practicum.catsgram.model.SortOrder;
 
-import java.time.Instant;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/posts")
 public class PostController {
 
-    private final Map<Long, Post> posts = new HashMap<>();
+    private final PostService postService;
+
+    public PostController(PostService postService) {
+        this.postService = postService;
+    }
 
     @GetMapping
-    public Collection<Post> findAll() {
-        return posts.values();
+    public Collection<Post> findAll(
+            @RequestParam(defaultValue = "desc") String sort,
+            @RequestParam(defaultValue = "0") Integer from,
+            @RequestParam(defaultValue = "10") Integer size
+    ) {
+        SortOrder sortOrder = SortOrder.from(sort) == null ? SortOrder.DESCENDING : SortOrder.from(sort);
+        Integer fromResult = from >= 0 ? from : 0;
+        Integer sizeResult = size > 0 ? size : 10;
+        Pagination pagination = new Pagination(sortOrder, fromResult, sizeResult);
+        return postService.findAll(pagination);
+    }
+
+    @GetMapping("/{postId}")
+    public Post findById(@PathVariable Long postId) {
+        return postService.findById(postId)
+                .orElseThrow(() -> new PostNotFoundException(String.format("Пост № %d не найден", postId)));
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public Post create(@RequestBody Post post) {
-        // проверяем выполнение необходимых условий
-        if (post.getDescription() == null || post.getDescription().isBlank()) {
-            throw new ConditionsNotMetException("Описание не может быть пустым");
-        }
-        // формируем дополнительные данные
-        post.setId(getNextId());
-        post.setPostDate(Instant.now());
-        // сохраняем новую публикацию в памяти приложения
-        posts.put(post.getId(), post);
-        return post;
+        return postService.create(post);
     }
 
     @PutMapping
     public Post update(@RequestBody Post newPost) {
-        // проверяем необходимые условия
-        if (newPost.getId() == null) {
-            throw new ConditionsNotMetException("Id должен быть указан");
-        }
-        if (posts.containsKey(newPost.getId())) {
-            Post oldPost = posts.get(newPost.getId());
-            if (newPost.getDescription() == null || newPost.getDescription().isBlank()) {
-                throw new ConditionsNotMetException("Описание не может быть пустым");
-            }
-            // если публикация найдена и все условия соблюдены, обновляем её содержимое
-            oldPost.setDescription(newPost.getDescription());
-            return oldPost;
-        }
-        throw new NotFoundException("Пост с id = " + newPost.getId() + " не найден");
-    }
-
-    // вспомогательный метод для генерации идентификатора нового поста
-    private long getNextId() {
-        long currentMaxId = posts.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
+        return postService.update(newPost);
     }
 }
